@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bài giảng tương tác - Công nghệ DNA tái tổ hợp</title>
+<style>
+:root{--bg:#07111f;--panel:#0e1b2f;--text:#f7fbff;--muted:#b9c8db;--accent:#52d6a5;--danger:#ff6b6b;--line:#24405d}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:linear-gradient(135deg,#07111f,#102443);color:var(--text);min-height:100vh}
+.wrap{width:min(1120px,96vw);margin:24px auto}.header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:14px}.header h1{font-size:clamp(20px,3vw,34px);margin:0}.status{font-size:14px;color:var(--muted);white-space:nowrap}
+.player{position:relative;background:#000;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 18px 50px #0008}.player video{display:block;width:100%;max-height:76vh;background:#000}
+.hint{margin-top:12px;padding:12px 14px;border:1px solid var(--line);background:#0b1728cc;border-radius:12px;color:var(--muted);line-height:1.5}
+.overlay{position:absolute;inset:0;background:#06101be8;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}.overlay.show{display:flex}.card{width:min(850px,96%);max-height:92%;overflow:auto;background:var(--panel);border:1px solid #365679;border-radius:18px;padding:22px;box-shadow:0 20px 60px #000b}.qtop{display:flex;justify-content:space-between;gap:12px;align-items:center}.badge{display:inline-block;background:#173655;border:1px solid #2f628d;border-radius:999px;padding:6px 10px;font-size:13px;color:#dceeff}.time{color:#9fc1de;font-size:13px}.question{font-size:clamp(18px,2.4vw,27px);font-weight:700;line-height:1.38;margin:16px 0}.applications{margin:0 0 14px 1.2em;color:#e8f1fb;line-height:1.5}.options{display:grid;gap:10px}.option{width:100%;text-align:left;padding:13px 14px;border-radius:12px;border:1px solid #31506d;background:#10243a;color:white;font-size:16px;line-height:1.4;cursor:pointer;transition:.16s}.option:hover{transform:translateY(-1px);border-color:#6aa0cf;background:#15304d}.option:disabled{cursor:default;opacity:.72}.feedback{min-height:28px;margin-top:14px;font-weight:700}.feedback.ok{color:var(--accent)}.feedback.bad{color:#ffb0b0}.countdown{font-size:13px;color:#c6d5e6;margin-top:8px}
+@media(max-width:640px){.wrap{margin:10px auto}.header{align-items:flex-start;flex-direction:column}.card{padding:16px}.option{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>Công nghệ DNA tái tổ hợp</h1>
+    <div class="status" id="status">Câu đã hoàn thành: 0/5</div>
+  </div>
+  <div class="player">
+    <video id="video" controls preload="metadata" playsinline>
+      <source src="video.mp4" type="video/mp4">
+      Trình duyệt của bạn không hỗ trợ video HTML5.
+    </video>
+    <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="questionText">
+      <div class="card">
+        <div class="qtop">
+          <span class="badge" id="badge">Câu 1/5</span>
+          <span class="time" id="qTime"></span>
+        </div>
+        <div class="question" id="questionText"></div>
+        <ol class="applications" id="applications"></ol>
+        <div class="options" id="options"></div>
+        <div class="feedback" id="feedback"></div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+    </div>
+  </div>
+  <div class="hint"><b>Cách hoạt động:</b> Video tự dừng tại đúng mốc câu hỏi. Trả lời đúng mới được đi tiếp. Nếu trả lời sai, video tự tua về 10 giây trước mốc đó để xem lại rồi dừng hỏi lại.</div>
+</div>
+<audio id="correctSound" src="correct.mp3" preload="auto"></audio>
+<audio id="wrongSound" src="wrong.mp3" preload="auto"></audio>
+<script>
+const questions = [
+  {
+    time: 71,
+    question: "DNA tái tổ hợp là",
+    options: [
+      "A. Phân tử DNA được tạo ra từ hai nguồn khác nhau rồi chuyển vào tế bào nhận.",
+      "B. Phân tử DNA được tạo ra do quá trình nhân đôi DNA trong tế bào.",
+      "C. Phân tử DNA được tách trực tiếp từ tế bào nhận.",
+      "D. Phân tử DNA được tạo ra từ RNA và protein của hai tế bào khác nhau."
+    ], correct: 0
+  },
+  {
+    time: 93,
+    question: "DNA tái tổ hợp gồm những thành phần nào sau đây?",
+    options: [
+      "A. Một gene và DNA dùng làm vector.",
+      "B. Một gene và một phân tử RNA.",
+      "C. Hai gene có nguồn gốc từ cùng một tế bào.",
+      "D. DNA của tế bào nhận và protein của tế bào cho."
+    ], correct: 0
+  },
+  {
+    time: 125,
+    question: "Thứ tự nào sau đây phù hợp với các kĩ thuật được nêu trong nguyên lí của công nghệ DNA tái tổ hợp?",
+    options: [
+      "A. Tách chiết gene → nhân bản gene → cắt và ghép nối các DNA → đưa vào tế bào nhận.",
+      "B. Nhân bản gene → tách chiết gene → đưa vào tế bào nhận → cắt và ghép nối DNA.",
+      "C. Cắt và ghép nối DNA → tách chiết gene → nhân bản gene → đưa vào tế bào nhận.",
+      "D. Tách chiết gene → cắt và ghép nối DNA → đưa vào tế bào nhận → nhân bản gene."
+    ], correct: 0
+  },
+  {
+    time: 236,
+    question: "Cho các ứng dụng sau của vi sinh vật biến đổi gene trong ngành công nghiệp và bảo vệ môi trường. Có bao nhiêu ứng dụng thuộc lĩnh vực công nghiệp và bảo vệ môi trường?",
+    applications: [
+      "Sản xuất ethanol.", "Xử lí nước thải.", "Xử lí các hóa chất độc hại.",
+      "Tách chiết các kim loại nặng.", "Thu hồi dầu.", "Sản xuất insulin người."
+    ],
+    options: ["A. 3.", "B. 4.", "C. 5.", "D. 6."], correct: 2
+  },
+  {
+    time: 271,
+    question: "Ứng dụng của công nghệ DNA tái tổ hợp trong nông nghiệp là:",
+    options: [
+      "A. Tạo vi khuẩn biến đổi gene giúp cây tăng cường hấp thụ nitrogen và ức chế vi khuẩn, nấm gây bệnh.",
+      "B. Tạo vi khuẩn biến đổi gene giúp cây giảm hấp thụ nitrogen và tăng khả năng chịu hạn.",
+      "C. Tạo cây trồng có khả năng tự sản xuất thuốc kháng sinh.",
+      "D. Tạo vi sinh vật làm tăng hàm lượng kim loại nặng trong đất."
+    ], correct: 0
+  }
+];
+
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const badge = document.getElementById('badge');
+const qTime = document.getElementById('qTime');
+const questionText = document.getElementById('questionText');
+const applicationsEl = document.getElementById('applications');
+const optionsEl = document.getElementById('options');
+const feedback = document.getElementById('feedback');
+const countdown = document.getElementById('countdown');
+const status = document.getElementById('status');
+const correctSound = document.getElementById('correctSound');
+const wrongSound = document.getElementById('wrongSound');
+
+let answered = new Set();
+let activeIndex = -1;
+let replayingWrong = false;
+let internalSeek = false;
+let lastSafeTime = 0;
+
+function fmt(sec){
+  const m = Math.floor(sec/60), s = Math.floor(sec%60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+function nextUnanswered(){ return questions.findIndex((_,i)=>!answered.has(i)); }
+function setOptionsEnabled(enabled){
+  [...optionsEl.querySelectorAll('button')].forEach(b=>b.disabled=!enabled);
+}
+function updateStatus(){ status.textContent = `Câu đã hoàn thành: ${answered.size}/${questions.length}`; }
+
+function showQuestion(index){
+  if(index < 0 || answered.has(index)) return;
+  activeIndex = index;
+  replayingWrong = false;
+  video.pause();
+  internalSeek = true;
+  video.currentTime = questions[index].time;
+  setTimeout(()=> internalSeek=false, 80);
+  const q = questions[index];
+  badge.textContent = `Câu ${index+1}/${questions.length}`;
+  qTime.textContent = `Mốc ${fmt(q.time)} (${q.time}s)`;
+  questionText.textContent = q.question;
+  applicationsEl.innerHTML = '';
+  if(q.applications){
+    q.applications.forEach(x=>{ const li=document.createElement('li'); li.textContent=x; applicationsEl.appendChild(li); });
+  }
+  optionsEl.innerHTML = '';
+  q.options.forEach((opt,oi)=>{
+    const btn=document.createElement('button');
+    btn.className='option'; btn.type='button'; btn.textContent=opt;
+    btn.addEventListener('click',()=>chooseAnswer(oi));
+    optionsEl.appendChild(btn);
+  });
+  feedback.textContent=''; feedback.className='feedback'; countdown.textContent='';
+  overlay.classList.add('show');
+}
+
+function chooseAnswer(optionIndex){
+  if(activeIndex < 0) return;
+  const q = questions[activeIndex];
+  setOptionsEnabled(false);
+  if(optionIndex === q.correct){
+    feedback.textContent = 'Chính xác! Video sẽ tiếp tục.';
+    feedback.className = 'feedback ok';
+    correctSound.currentTime = 0;
+    correctSound.play().catch(()=>{});
+    const doneIndex = activeIndex;
+    answered.add(doneIndex);
+    updateStatus();
+    correctSound.onended = () => continueAfterCorrect(doneIndex);
+    // Fallback nếu trình duyệt không phát được audio.
+    setTimeout(()=>{ if(answered.has(doneIndex) && activeIndex===doneIndex) continueAfterCorrect(doneIndex); }, 2800);
+  } else {
+    feedback.textContent = 'Chưa đúng. Hãy xem lại 10 giây trước mốc câu hỏi.';
+    feedback.className = 'feedback bad';
+    wrongSound.currentTime = 0;
+    wrongSound.play().catch(()=>{});
+    const idx = activeIndex;
+    setTimeout(()=>startReplay(idx), 900);
+  }
+}
+
+function continueAfterCorrect(doneIndex){
+  if(activeIndex !== doneIndex) return;
+  correctSound.onended = null;
+  overlay.classList.remove('show');
+  activeIndex = -1;
+  internalSeek = true;
+  video.currentTime = questions[doneIndex].time + 0.08;
+  setTimeout(()=>{ internalSeek=false; video.play().catch(()=>{}); },100);
+}
+
+function startReplay(index){
+  overlay.classList.remove('show');
+  activeIndex = -1;
+  replayingWrong = true;
+  const start = Math.max(0, questions[index].time - 10);
+  internalSeek = true;
+  video.currentTime = start;
+  setTimeout(()=>{
+    internalSeek=false;
+    video.play().catch(()=>{});
+  },120);
+  countdown.textContent='';
+}
+
+video.addEventListener('timeupdate',()=>{
+  if(internalSeek || activeIndex >= 0) return;
+  const idx = nextUnanswered();
+  if(idx < 0) { lastSafeTime = video.currentTime; return; }
+  const trigger = questions[idx].time;
+  // Dung sai nhỏ để tránh bỏ mốc do timeupdate không chạy đúng từng mili giây.
+  if(video.currentTime >= trigger - 0.06){
+    showQuestion(idx);
+    return;
+  }
+  lastSafeTime = video.currentTime;
+});
+
+// Không cho tua vượt qua câu hỏi chưa hoàn thành.
+video.addEventListener('seeking',()=>{
+  if(internalSeek) return;
+  const idx = nextUnanswered();
+  if(idx >= 0 && video.currentTime >= questions[idx].time){
+    internalSeek = true;
+    video.currentTime = questions[idx].time;
+    setTimeout(()=>{ internalSeek=false; showQuestion(idx); },80);
+  }
+});
+
+// Nếu học sinh cố đóng/tắt tương tác bằng thao tác play khi câu hỏi đang mở, vẫn giữ video dừng.
+video.addEventListener('play',()=>{
+  if(activeIndex >= 0){ video.pause(); }
+});
+
+updateStatus();
+</script>
+</body>
+</html>
